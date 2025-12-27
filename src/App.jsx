@@ -56,61 +56,91 @@ function App() {
 
   // 从本地存储加载数据
   useEffect(() => {
-    // 1. 加载菜单
-    const queryMenu = new AV.Query('Menu');
-    queryMenu.find().then((results) => {
-      if (results.length > 0) {
-        const cloudMenu = results.map(item => ({
-          id: item.id,
-          ...item.attributes
-        }));
-        setMenuList(cloudMenu);
-      } else {
-        // 如果云端没有数据，初始化一些默认数据上传
-        const defaultMenu = [
-          { name: '红烧肉', description: '肥而不腻，最爱吃的', image: '' },
-          { name: '番茄炒蛋', description: '经典国民菜', image: '' },
-          { name: '酸菜鱼', description: '酸辣开胃', image: '' },
-          { name: '可乐鸡翅', description: '甜甜的，很嫩', image: '' }
-        ];
-        
-        // 批量保存
-        const objects = defaultMenu.map(dish => {
-          const MenuObj = AV.Object.extend('Menu');
-          const menu = new MenuObj();
-          menu.set('name', dish.name);
-          menu.set('description', dish.description);
-          menu.set('image', dish.image);
-          return menu;
-        });
-        
-        AV.Object.saveAll(objects).then((savedObjects) => {
-           setMenuList(savedObjects.map(item => ({
-             id: item.id,
-             ...item.attributes
-           })));
-        });
+    // 优先加载本地缓存，避免白屏
+    const savedMenu = localStorage.getItem('my_menu');
+    if (savedMenu) {
+      try {
+        setMenuList(JSON.parse(savedMenu));
+      } catch (e) { console.error('读取本地菜单失败', e); }
+    }
+    
+    const savedOrders = localStorage.getItem('my_orders');
+    if (savedOrders) {
+      try {
+        setOrders(JSON.parse(savedOrders));
+      } catch (e) { console.error('读取本地订单失败', e); }
+    }
+
+    // 尝试从云端更新，设置超时
+    const fetchCloudData = async () => {
+      try {
+        // 1. 加载菜单
+        const queryMenu = new AV.Query('Menu');
+        // 设置3秒超时，如果国内访问慢直接放弃云端同步
+        const menuPromise = Promise.race([
+          queryMenu.find(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+        ]);
+
+        const menuResults = await menuPromise;
+        if (menuResults && menuResults.length > 0) {
+          const cloudMenu = menuResults.map(item => ({
+            id: item.id,
+            ...item.attributes
+          }));
+          setMenuList(cloudMenu);
+          localStorage.setItem('my_menu', JSON.stringify(cloudMenu)); // 更新本地缓存
+        } else {
+           // 如果云端是空的（第一次），初始化默认数据
+           if (!savedMenu) {
+             const defaultMenu = [
+               { name: '红烧肉', description: '肥而不腻，最爱吃的', image: '' },
+               { name: '番茄炒蛋', description: '经典国民菜', image: '' },
+               { name: '酸菜鱼', description: '酸辣开胃', image: '' },
+               { name: '可乐鸡翅', description: '甜甜的，很嫩', image: '' }
+             ];
+             // 尝试上传默认数据，但不阻塞
+             const objects = defaultMenu.map(dish => {
+                const MenuObj = AV.Object.extend('Menu');
+                const menu = new MenuObj();
+                menu.set('name', dish.name);
+                menu.set('description', dish.description);
+                menu.set('image', dish.image);
+                return menu;
+             });
+             AV.Object.saveAll(objects).catch(e => console.log('初始化默认数据上传失败', e));
+             setMenuList(defaultMenu.map((m, i) => ({ ...m, id: 'local_' + i })));
+           }
+        }
+
+        // 2. 加载订单
+        const queryOrders = new AV.Query('Orders');
+        queryOrders.descending('createdAt');
+        const orderPromise = Promise.race([
+          queryOrders.find(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+        ]);
+
+        const orderResults = await orderPromise;
+        if (orderResults) {
+          const cloudOrders = orderResults.map(item => ({
+            id: item.id,
+            ...item.attributes,
+            createTime: item.createdAt.toISOString()
+          }));
+          setOrders(cloudOrders);
+          localStorage.setItem('my_orders', JSON.stringify(cloudOrders)); // 更新本地缓存
+        }
+
+      } catch (error) {
+        console.log('云端同步失败或超时，使用本地数据模式', error);
+        // 不做任何处理，静默失败，保持显示本地数据
       }
-    }).catch(error => {
-      console.error('获取菜单失败', error);
-      // 降级使用本地数据
-      const savedMenu = localStorage.getItem('my_menu');
-      if (savedMenu) setMenuList(JSON.parse(savedMenu));
-    });
+    };
 
-    // 2. 加载订单
-    const queryOrders = new AV.Query('Orders');
-    queryOrders.descending('createdAt'); // 按时间倒序
-    queryOrders.find().then((results) => {
-      const cloudOrders = results.map(item => ({
-        id: item.id,
-        ...item.attributes,
-        createTime: item.createdAt.toISOString()
-      }));
-      setOrders(cloudOrders);
-    });
+    fetchCloudData();
 
-    // 开启实时查询（可选，简单起见先用轮询）
+    // 开启实时查询（轮询）
     const timer = setInterval(() => {
       const q = new AV.Query('Orders');
       q.descending('createdAt');
@@ -121,8 +151,9 @@ function App() {
           createTime: item.createdAt.toISOString()
         }));
         setOrders(cloudOrders);
-      });
-    }, 5000); // 每5秒刷新一次订单
+        localStorage.setItem('my_orders', JSON.stringify(cloudOrders));
+      }).catch(e => console.log('轮询更新失败，忽略'));
+    }, 10000); // 放宽到10秒，减少请求失败的频率
 
     return () => clearInterval(timer);
   }, []);
@@ -254,7 +285,7 @@ function App() {
   );
 
   return (
-    <Router>
+    <Router basename="/zuofan-web">
       <div className="app-content">
         <BackgroundDecorations />
         <Routes>
