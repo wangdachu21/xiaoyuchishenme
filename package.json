@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://giaogiaode.github.io/zuofan-web",
+  "homepage": "https://wangdachu.github.io/xiaoyuchishenme",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

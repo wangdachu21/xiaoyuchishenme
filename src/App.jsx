@@ -285,7 +285,7 @@ function App() {
   );
 
   return (
-    <Router basename="/zuofan-web">
+    <Router basename="/xiaoyuchishenme">
       <div className="app-content">
         <BackgroundDecorations />
         <Routes>
