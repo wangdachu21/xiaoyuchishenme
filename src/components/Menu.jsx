@@ -25,17 +25,17 @@ function Menu({ menuList, onOrder }) {
       ) : (
         <div className="menu-list">
           {menuList.map(item => (
-            <div key={item.id} className="glass-card" style={styles.menuItem}>
-              <div style={styles.infoWrapper}>
-                <div style={styles.dishInfo}>
-                  <div style={styles.dishName}>{item.name}</div>
-                  <div style={styles.dishDesc}>{item.description}</div>
+            <div key={item.id} className="glass-card menu-item">
+              <div className="menu-item-info">
+                <div className="menu-item-text">
+                  <div className="menu-item-name">{item.name}</div>
+                  <div className="menu-item-desc">{item.description}</div>
                 </div>
                 {item.image && (
-                  <img src={item.image} alt={item.name} style={styles.dishImage} />
+                  <img src={item.image} alt={item.name} className="menu-item-image" />
                 )}
               </div>
-              <button onClick={() => handleOrder(item)} style={styles.orderBtn}>点菜</button>
+              <button onClick={() => handleOrder(item)} className="order-btn">点菜</button>
             </div>
           ))}
         </div>
