@@ -1,10 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-function Orders({ orders }) {
+function Orders({ orders, onUpdateStatus }) {
   const formatDate = (isoString) => {
     const d = new Date(isoString);
     return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+  };
+
+  const handleStatusClick = (order) => {
+    if (order.status === 'pending') {
+      if (confirm(`这份 ${order.dishName} 做好了吗？`)) {
+        onUpdateStatus(order.id, 'completed');
+      }
+    }
   };
 
   return (
@@ -18,12 +26,25 @@ function Orders({ orders }) {
       ) : (
         <div className="order-list">
           {orders.map(item => (
-            <div key={item.id} style={styles.orderItem}>
+            <div 
+              key={item.id} 
+              style={{
+                ...styles.orderItem,
+                opacity: item.status === 'completed' ? 0.6 : 1
+              }}
+              onClick={() => handleStatusClick(item)}
+            >
               <div>
-                <div style={styles.orderName}>{item.dishName}</div>
+                <div style={{
+                  ...styles.orderName,
+                  textDecoration: item.status === 'completed' ? 'line-through' : 'none'
+                }}>{item.dishName}</div>
                 <div style={styles.orderTime}>{formatDate(item.createTime)}</div>
               </div>
-              <div style={styles.status}>
+              <div style={{
+                ...styles.status,
+                color: item.status === 'completed' ? '#4CAF50' : '#FF5733'
+              }}>
                 {item.status === 'pending' ? '待制作' : '已完成'}
               </div>
             </div>

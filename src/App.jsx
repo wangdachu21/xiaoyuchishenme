@@ -154,13 +154,30 @@ function App() {
     });
   };
 
+  const updateOrderStatus = (orderId, newStatus) => {
+    const order = AV.Object.createWithoutData('Orders', orderId);
+    order.set('status', newStatus);
+    order.save().then(() => {
+      // 更新本地状态
+      setOrders(orders.map(o => {
+        if (o.id === orderId) {
+          return { ...o, status: newStatus };
+        }
+        return o;
+      }));
+    }).catch(error => {
+      console.error('更新状态失败', error);
+      alert('操作失败，请重试');
+    });
+  };
+
   return (
     <Router>
       <div className="app-content">
         <Routes>
           <Route path="/" element={<Menu menuList={menuList} onOrder={addOrder} />} />
           <Route path="/menu" element={<Menu menuList={menuList} onOrder={addOrder} />} />
-          <Route path="/orders" element={<Orders orders={orders} />} />
+          <Route path="/orders" element={<Orders orders={orders} onUpdateStatus={updateOrderStatus} />} />
           <Route path="/admin" element={<Admin onAddDish={addToMenu} />} />
         </Routes>
         <TabBar />
