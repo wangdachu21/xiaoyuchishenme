@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Menu from './components/Menu';
 import Orders from './components/Orders';
+import History from './components/History';
 import Admin from './components/Admin';
 import AV from 'leancloud-storage';
 
@@ -21,6 +22,7 @@ function TabBar() {
   const location = useLocation();
   const isMenu = location.pathname === '/' || location.pathname === '/menu';
   const isOrders = location.pathname === '/orders';
+  const isHistory = location.pathname === '/history';
 
   return (
     <div className="tab-bar">
@@ -31,6 +33,10 @@ function TabBar() {
       <Link to="/orders" className={`tab-item ${isOrders ? 'active' : ''}`}>
         <span className="tab-icon">📋</span>
         <span>已点</span>
+      </Link>
+      <Link to="/history" className={`tab-item ${isHistory ? 'active' : ''}`}>
+        <span className="tab-icon">📅</span>
+        <span>记录</span>
       </Link>
     </div>
   );
@@ -171,6 +177,23 @@ function App() {
     });
   };
 
+  const updateOrderReview = (orderId, review) => {
+    const order = AV.Object.createWithoutData('Orders', orderId);
+    order.set('review', review);
+    order.save().then(() => {
+      // 更新本地状态
+      setOrders(orders.map(o => {
+        if (o.id === orderId) {
+          return { ...o, review: review };
+        }
+        return o;
+      }));
+    }).catch(error => {
+      console.error('保存评价失败', error);
+      alert('保存评价失败，请重试');
+    });
+  };
+
   return (
     <Router>
       <div className="app-content">
@@ -178,6 +201,7 @@ function App() {
           <Route path="/" element={<Menu menuList={menuList} onOrder={addOrder} />} />
           <Route path="/menu" element={<Menu menuList={menuList} onOrder={addOrder} />} />
           <Route path="/orders" element={<Orders orders={orders} onUpdateStatus={updateOrderStatus} />} />
+          <Route path="/history" element={<History orders={orders} onUpdateReview={updateOrderReview} />} />
           <Route path="/admin" element={<Admin onAddDish={addToMenu} />} />
         </Routes>
         <TabBar />
